@@ -54,9 +54,10 @@ namespace Assignment1
             var server_response = await client.GetStringAsync("GetProducebyId/" + search.Text);
             Response response_JSON = JsonConvert.DeserializeObject<Response>(server_response);
             product.Text = response_JSON.produce.name;
-            productID.Text = response_JSON.produce.produceId.ToString();
+            productID.Text = response_JSON.produce.productId.ToString();
             amount.Text = response_JSON.produce.amount.ToString();
             price.Text = response_JSON.produce.price.ToString();
+            dataID.Text = response_JSON.produce.produceId.ToString();
 
             /*
             try
@@ -159,14 +160,16 @@ namespace Assignment1
         {
             Produce produce = new Produce();
 
-            produce.produceId = int.Parse(productID.Text);
+            produce.produceId = 0;
+            produce.productId = int.Parse(productID.Text);
             produce.name = product.Text;
             produce.amount = double.Parse(amount.Text);
             produce.price = double.Parse(price.Text);
 
-            var server_response = await client.PutAsJsonAsync("UpdateProduce", produce);
+            var server_response = await client.PostAsJsonAsync("AddProduce", produce);
 
-            Response response = JsonConvert.DeserializeObject<Response>(server_response.ToString());
+            MessageBox.Show(server_response.ToString());
+
             refreshGrid();
 
             /*
@@ -176,6 +179,7 @@ namespace Assignment1
                 con.Open();
 
                 string query = "insert into produce values (default, @name, @pId, @amount, @price);";
+
 
                 cmd = new NpgsqlCommand(query, con);
 
@@ -200,13 +204,16 @@ namespace Assignment1
         {
             Produce produce = new Produce();
 
-            produce.produceId = int.Parse(productID.Text);
+            produce.produceId = int.Parse(dataID.Text);
+            produce.productId = int.Parse(productID.Text);
             produce.name = product.Text;
             produce.amount = double.Parse(amount.Text);
             produce.price = double.Parse(price.Text);
 
             var server_response = await client.PutAsJsonAsync("UpdateProduce", produce);
-            MessageBox.Show(server_response.ToString());    
+
+            MessageBox.Show(server_response.ToString());
+
             refreshGrid();
 
             /*
@@ -237,8 +244,13 @@ namespace Assignment1
             */
         }
 
-        private void delete_Click(object sender, RoutedEventArgs e)
+        private async void delete_Click(object sender, RoutedEventArgs e)
         {
+
+            var response = await client.DeleteAsync("DeleteProducebyId/" + int.Parse(dataID.Text));
+            MessageBox.Show(response.ToString());
+            refreshGrid();
+            /*
             try
             {
                 establishConnect();
@@ -259,6 +271,7 @@ namespace Assignment1
             {
                 MessageBox.Show(ex.Message);
             }
+            */
         }
     }
 }
