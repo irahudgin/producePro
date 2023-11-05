@@ -1,9 +1,13 @@
-﻿using Npgsql;
+﻿using Admin.Models;
+using Newtonsoft.Json;
+using Npgsql;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -14,6 +18,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Xml.Linq;
 
 namespace Assignment1
 {
@@ -22,8 +27,13 @@ namespace Assignment1
     /// </summary>
     public partial class Admin : Window
     {
+        HttpClient client = new HttpClient();
         public Admin()
         {
+            client.BaseAddress = new Uri("https://localhost:7244/Produce/");
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(
+                    new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
             InitializeComponent();
             refreshGrid();
         }
@@ -39,8 +49,16 @@ namespace Assignment1
             this.Close();
         }
 
-        private void select_Click(object sender, RoutedEventArgs e)
+        private async void select_Click(object sender, RoutedEventArgs e)
         {
+            var server_response = await client.GetStringAsync("GetProducebyId/" + search.Text);
+            Response response_JSON = JsonConvert.DeserializeObject<Response>(server_response);
+            product.Text = response_JSON.produce.name;
+            productID.Text = response_JSON.produce.produceId.ToString();
+            amount.Text = response_JSON.produce.amount.ToString();
+            price.Text = response_JSON.produce.price.ToString();
+
+            /*
             try
             {
                 establishConnect();
@@ -71,10 +89,18 @@ namespace Assignment1
             {
                 MessageBox.Show(ex.Message);    
             }
+            */
         }
 
-        private void refreshGrid()
+        private async void refreshGrid()
         {
+            var server_response = await client.GetStringAsync("GetAllProduce"); // create/call method to get all students
+            Response response_JSON = JsonConvert.DeserializeObject<Response>(server_response);// decrypt server_response
+
+            dataGrid.ItemsSource = response_JSON.produces;
+            DataContext = this;
+
+            /*
             try
             {
                 establishConnect();
@@ -97,6 +123,7 @@ namespace Assignment1
             {
                 MessageBox.Show(ex.Message);
             }
+            */
         }
         private void establishConnect()
         {
@@ -128,8 +155,21 @@ namespace Assignment1
             return connectionString;
         }
 
-        private void insert_Click(object sender, RoutedEventArgs e)
+        private async void insert_Click(object sender, RoutedEventArgs e)
         {
+            Produce produce = new Produce();
+
+            produce.produceId = int.Parse(productID.Text);
+            produce.name = product.Text;
+            produce.amount = double.Parse(amount.Text);
+            produce.price = double.Parse(price.Text);
+
+            var server_response = await client.PutAsJsonAsync("UpdateProduce", produce);
+
+            Response response = JsonConvert.DeserializeObject<Response>(server_response.ToString());
+            refreshGrid();
+
+            /*
             try
             {
                 establishConnect();
@@ -153,10 +193,23 @@ namespace Assignment1
             {
                 MessageBox.Show(ex.Message);
             }
+            */
         }
 
-        private void update_Click(object sender, RoutedEventArgs e)
+        private async void update_Click(object sender, RoutedEventArgs e)
         {
+            Produce produce = new Produce();
+
+            produce.produceId = int.Parse(productID.Text);
+            produce.name = product.Text;
+            produce.amount = double.Parse(amount.Text);
+            produce.price = double.Parse(price.Text);
+
+            var server_response = await client.PutAsJsonAsync("UpdateProduce", produce);
+            MessageBox.Show(server_response.ToString());    
+            refreshGrid();
+
+            /*
             try
             {
                 establishConnect();
@@ -181,6 +234,7 @@ namespace Assignment1
             {
                 MessageBox.Show(ex.Message);
             }
+            */
         }
 
         private void delete_Click(object sender, RoutedEventArgs e)
