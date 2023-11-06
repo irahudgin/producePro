@@ -1,8 +1,11 @@
-﻿using Npgsql;
+﻿using Admin.Models;
+using Newtonsoft.Json;
+using Npgsql;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,8 +27,13 @@ namespace Assignment1
     {
         public static NpgsqlConnection con;
         public static NpgsqlCommand cmd;
+        HttpClient client = new HttpClient();
         public Sale()
         {
+            client.BaseAddress = new Uri("https://localhost:7244/Produce/");
+            client.DefaultRequestHeaders.Accept.Clear();
+            client.DefaultRequestHeaders.Accept.Add(
+                    new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
             InitializeComponent();
             confirmSale.IsEnabled = false;
         }
@@ -61,30 +69,22 @@ namespace Assignment1
             return connectionString;
         }
 
-        private void calculateTotal_Click(object sender, RoutedEventArgs e)
+        private async void calculateTotal_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                establishConnect();
-                con.Open();
-
                 int prodId = int.Parse(productId.Text);
-
-                string query = "select amount from produce where product_id = @prodId";
-                cmd = new NpgsqlCommand(query, con);
-                cmd.Parameters.AddWithValue("@prodId", prodId);
+                
+                var server_response = await client.GetStringAsync("GetProducebyProductId/" + productId.Text);
+                Response response_JSON = JsonConvert.DeserializeObject<Response>(server_response);
+                
+                // string query = "select amount from produce where product_id" +
+                   // " = @prodId";
                 double amountProduce = 0;
-                NpgsqlDataReader dr = cmd.ExecuteReader();
-                while (dr.Read())
-                {
-                    amountProduce = double.Parse(dr["amount"].ToString());
-                }
+                amountProduce = response_JSON.produce.amount;
 
                 double amountRequested = double.Parse(amountKg.Text);
 
                 if ((amountProduce - amountRequested) < 0)
                 {
-                    con.Close();
                     MessageBox.Show("Not enough produce in stock. Check stock and try again");
                     Sale newSale = new Sale();
                     newSale.Show();
@@ -92,25 +92,13 @@ namespace Assignment1
                     return;
                 }
 
-                con.Close();
-                con.Open();
-
-                query = "select price from produce where product_id = @pId";
-                cmd = new NpgsqlCommand(query, con);
-                cmd.Parameters.AddWithValue("@pId", int.Parse(productId.Text));
-                bool noData = true;
-                dr = cmd.ExecuteReader();
-                string priceStr = "";
+            server_response = await client.GetStringAsync("GetProducebyProductId/" + productId.Text);
+            response_JSON = JsonConvert.DeserializeObject<Response>(server_response);
+            bool noData = true;
+            string priceStr = "";
                  
-                while (dr.Read())
-                {
-                    noData = false;
-                    priceStr = dr["price"].ToString();
-                }
-                if (noData)
-                {
-                    MessageBox.Show("Cannot find produce");
-                }
+            noData = false;
+            priceStr = response_JSON.produce.price.ToString();
 
                 double priceMulti = double.Parse(priceStr);
                 double priceTotal = priceMulti * double.Parse(amountKg.Text);
@@ -118,56 +106,37 @@ namespace Assignment1
                 /// MessageBox.Show(priceTotal.ToString());
                 confirmSale.IsEnabled = true;
 
-
-                con.Close();
-            }
-            catch (NpgsqlException ex)
-            {
-                MessageBox.Show(ex.Message);
-            }
-
-
         }
 
-        private void confirmSale_Click(object sender, RoutedEventArgs e)
+        private async void confirmSale_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                establishConnect();
-                con.Open();
+            Sales sale = new Sales();
 
                 double totalDoub = double.Parse(total.Text);
-                double amountDoub = double.Parse(amountKg.Text);
-                int prodId = int.Parse(productId.Text);
-                string customerName = custName.Text;
 
-                string query = "insert into sale values (default, @custname, @prodId, @amountBought)";
-                cmd = new NpgsqlCommand(query, con);
-                cmd.Parameters.AddWithValue("@custname", customerName);
-                cmd.Parameters.AddWithValue("@prodId", prodId);
-                cmd.Parameters.AddWithValue("@amountBought", amountDoub);
+                sale.amountBought = double.Parse(amountKg.Text);
+                sale.productId = int.Parse(productId.Text);
+                sale.customerName = custName.Text;
 
-                NpgsqlDataReader dr = cmd.ExecuteReader();
-                con.Close();
-                con.Open();
+            var server_response = await client.PostAsJsonAsync("AddSale", sale);
 
-                query = "update produce set amount = amount - @amount where product_id = @prodId";
-                cmd = new NpgsqlCommand(query, con);
-                cmd.Parameters.AddWithValue("@prodId", prodId);
-                cmd.Parameters.AddWithValue("@amount", amountDoub);
-                dr = cmd.ExecuteReader();
-                con.Close();
+            var server_response2 = await client.GetStringAsync("GetProducebyProductId/" + productId.Text);
+            var response_JSON = JsonConvert.DeserializeObject<Response>(server_response2);
+
+            Produce produce = new Produce();
+            produce.productId = response_JSON.produce.productId;
+            produce.produceId = response_JSON.produce.produceId;
+            produce.price = response_JSON.produce.price;
+            produce.amount = response_JSON.produce.amount;
+
+            var server_response3 = await client.PutAsJsonAsync("ProduceSaleUpdate", produce);
                 MessageBox.Show("Sale Confirmed!");
                 Sale newSale = new Sale();
                 newSale.Show();
                 this.Close();
                 Admin adminWindow = new Admin();
                 adminWindow.Show();
-            }
-            catch (NpgsqlException ex)
-            {
-                MessageBox.Show(ex.Message);
-            }
+            
         }
     }
 }

@@ -114,6 +114,7 @@
     </ApplicationDefinition>
     <Compile Include="Models\Produce.cs" />
     <Compile Include="Models\Response.cs" />
+    <Compile Include="Models\Sales.cs" />
     <Compile Include="Sale.xaml.cs">
       <DependentUpon>Sale.xaml</DependentUpon>
     </Compile>
